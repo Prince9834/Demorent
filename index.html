@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Smart Rental Assistant</title>
+  <style>
+    body { font-family: Arial; background: #0f172a; color: white; }
+    #chat { max-width: 420px; margin: 30px auto; padding: 15px; background: #1e293b; border-radius: 15px; height: 500px; overflow-y: auto; }
+    .msg { padding: 10px; margin: 8px; border-radius: 10px; max-width: 75%; }
+    .bot { background: #334155; }
+    .user { background: #2563eb; margin-left: auto; text-align: right; }
+    #inputBox { display: flex; max-width: 420px; margin: auto; }
+    input { flex: 1; padding: 12px; border: none; outline: none; }
+    button { padding: 12px; background: #2563eb; color: white; border: none; cursor: pointer; }
+    .options { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px; }
+    .option-btn { background: #475569; padding: 6px 10px; border-radius: 8px; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+<div id="chat"></div>
+<div id="inputBox">
+  <input id="input" placeholder="Type here..." />
+  <button onclick="send()">Send</button>
+</div>
+
+<script>
+let step = -1;
+let data = {};
+
+const nameQuestions = ["What’s your name?", "May I know your name?", "Who am I speaking with?"];
+const phoneQuestions = ["What’s your phone number?", "Can I get your phone?", "Your contact number, please?"];
+const emailQuestions = ["Share your email? (type 'skip' if none)", "May I have your email?", "Your email address, please?"];
+const dateQuestions = ["When should we contact you?", "Preferred contact date?", "Date to reach you?"];
+
+function addMsg(text, cls) {
+  document.getElementById("chat").innerHTML += `<div class="msg ${cls}">${text}</div>`;
+  scroll();
+}
+function addOptions(options) {
+  let html = '<div class="options">';
+  options.forEach(opt => html += `<div class="option-btn" onclick="selectOption('${opt}')">${opt}</div>`);
+  html += '</div>';
+  document.getElementById("chat").innerHTML += html;
+  scroll();
+}
+function selectOption(value) { document.getElementById("input").value = value; send(); }
+function scroll() { let chat = document.getElementById("chat"); chat.scrollTop = chat.scrollHeight; }
+
+function botReply(text, options=null) {
+  addMsg("Typing...", "bot");
+  setTimeout(() => {
+    document.querySelector(".bot:last-child").remove();
+    addMsg(text, "bot");
+    if(options) addOptions(options);
+  }, 600);
+}
+
+// Validation
+function validName(name){ return /^[a-zA-Z ]{2,}$/.test(name); }
+function validPhone(phone){ return /^[+]?[0-9]{9,15}$/.test(phone); }
+function validEmail(email){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
+
+function send() {
+  let input = document.getElementById("input").value.trim();
+  if(!input) return;
+  addMsg(input, "user");
+  document.getElementById("input").value = "";
+
+  if(step === -1){
+    data.intent = input; step++;
+    botReply("Hi! How can I help you today?", ["Rent", "Buy", "Just exploring"]);
+    return;
+  }
+
+  if(step === 0){
+    botReply(nameQuestions[Math.floor(Math.random()*nameQuestions.length)]); step++;
+    return;
+  }
+
+  if(step === 1){
+    if(!validName(input)){ botReply("Hmm that doesn’t look like a name. Try again."); return; }
+    data.name = input; step++;
+    botReply(phoneQuestions[Math.floor(Math.random()*phoneQuestions.length)]); return;
+  }
+
+  if(step === 2){
+    if(!validPhone(input)){ botReply("Number seems off. Enter a valid one."); return; }
+    data.phone = input; step++;
+    botReply("What type of rental are you looking for?", ["Apartment", "Bedroom", "House"]); return;
+  }
+
+  if(step === 3){
+    data.requirement = input; step++;
+    botReply(emailQuestions[Math.floor(Math.random()*emailQuestions.length)]); return;
+  }
+
+  if(step === 4){
+    if(input.toLowerCase() !== "skip" && !validEmail(input)){ botReply("Invalid email. Try again or type 'skip'."); return; }
+    data.email = input === "skip" ? "" : input; step++;
+    botReply(dateQuestions[Math.floor(Math.random()*dateQuestions.length)]); return;
+  }
+
+  if(step === 5){
+    data.date = input; step++;
+    // 🔥 Send data to Google Apps Script
+    fetch("https://your-project.vercel.app/api/chatbot", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(data)
+})
+    .then(()=> botReply("Perfect! Your info was sent ✅"))
+    .catch(()=> botReply("Data sent (maybe)! Check the Sheet just in case."));
+    return;
+  }
+}
+
+// Start conversation
+setTimeout(()=>{ botReply("Hey 👋 How can I help you today?", ["Rent","Buy","Just exploring"]); }, 500);
+</script>
+
+</body>
+</html>
